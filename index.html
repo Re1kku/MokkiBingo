@@ -3,35 +3,410 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mökkibingon Testisivu</title>
+    <title>Mökkibingo</title>
     <style>
-        /* Täällä määritellään sivun ulkoasu (CSS) */
+        /* PERUSTYYLIT */
+        :root {
+            --primary: #2e7d32;
+            --bg: #f4f7f6;
+            --card-bg: #ffffff;
+            --text: #333;
+        }
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
             display: flex;
             justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #e6f2ff; /* Vaaleansininen tausta */
+        }
+        .container {
+            width: 100%;
+            max-width: 500px;
+        }
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1, h2, h3 { text-align: center; color: var(--primary); margin-top: 0; }
+        
+        /* LOMAKKEET JA NAPIT */
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 15px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        button:hover { filter: brightness(1.1); }
+        button:disabled { background-color: #a5d6a7; cursor: not-allowed; }
+        
+        .btn-secondary {
+            background-color: #f5f5f5;
             color: #333;
+            border: 1px solid #ccc;
         }
-        .laatikko {
-            text-align: center;
-            padding: 40px;
-            background-color: white;
-            border-radius: 15px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1); /* Pieni varjo */
+        .btn-secondary:hover { background-color: #e0e0e0; }
+        .row { display: flex; gap: 10px; }
+
+        /* HUONEKORTIT (Kojelauta) */
+        .room-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fafafa;
+            transition: all 0.2s;
         }
-        h1 {
-            color: #0055cc;
+        .room-card:hover { 
+            background: #e8f5e9; 
+            border-color: var(--primary); 
+            transform: translateY(-2px);
         }
+        .room-title { font-weight: bold; font-size: 16px; }
+        .room-members { 
+            font-size: 12px; 
+            color: #555; 
+            background: #e0e0e0; 
+            padding: 4px 10px; 
+            border-radius: 12px; 
+        }
+
+        /* HAITARIVALIKOT */
+        details {
+            background: #e8f5e9;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            padding: 10px;
+        }
+        summary { font-weight: bold; cursor: pointer; padding: 5px 0; }
+        .square-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 8px 10px;
+            margin-top: 6px;
+            border-radius: 6px;
+            border: 1px solid #c8e6c9;
+            font-size: 14px;
+        }
+        .delete-btn {
+            background: #e53935; color: white; padding: 4px 8px;
+            font-size: 11px; font-weight: normal; border-radius: 4px;
+            margin: 0 0 0 10px; width: auto; flex-shrink: 0;
+        }
+
+        /* BINGORUUDUKKO */
+        .bingo-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 5px;
+            margin-top: 20px;
+        }
+        .bingo-cell {
+            aspect-ratio: 1 / 1; background: white;
+            border: 2px solid var(--primary); border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            text-align: center; font-size: 10px; padding: 2px;
+            cursor: pointer; word-wrap: break-word; overflow: hidden;
+            user-select: none;
+        }
+        .bingo-cell.marked { background-color: var(--primary); color: white; }
+
+        .view { display: none; }
+        .view.active { display: block; }
+        
+        /* Apu-luokat */
+        .header-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
+        .back-btn { width: auto; padding: 6px 12px; font-size: 12px; margin: 0; }
     </style>
 </head>
 <body>
-    <div class="laatikko">
-        <h1>Vera on paras! 👋</h1>
-        <p>GitHub Pages toimii hienosti. Seuraavaksi voin alkaa suunnitella Mökkibingoa!</p>
+
+<div class="container">
+
+    <div id="login-view" class="view active card">
+        <h1>🌲 Mökkibingo</h1>
+        <p style="text-align: center; color: #666;">Kirjaudu sisään pelitilillesi.</p>
+        
+        <input type="text" id="username" placeholder="Käyttäjänimi (esim. Matti)">
+        <input type="password" id="password" placeholder="Salasana">
+        <button onclick="login()">Kirjaudu sisään</button>
     </div>
+
+    <div id="dashboard-view" class="view card">
+        <div class="header-bar">
+            <h2 style="margin: 0;">Tervetuloa, <span id="dash-username"></span>!</h2>
+            <button class="btn-secondary back-btn" onclick="showView('login-view')">Kirjaudu ulos</button>
+        </div>
+        
+        <h3 style="text-align: left; margin-top: 20px;">Omat huoneesi</h3>
+        <div id="room-list">
+            </div>
+
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+            <p style="margin: 0 0 10px 0; font-weight: bold;">Uusi peli?</p>
+            <div class="row">
+                <button onclick="promptCreateRoom()">Luo uusi</button>
+                <button onclick="promptJoinRoom()" style="background-color: #555;">Liity koodilla</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="lobby-view" class="view card">
+        <div class="header-bar">
+            <button class="btn-secondary back-btn" onclick="showView('dashboard-view')">⬅ Takaisin</button>
+            <span style="font-size: 14px; color: #666;">Pelaaja: <b id="display-username"></b></span>
+        </div>
+
+        <h3><span id="display-room-info"></span></h3>
+        
+        <div class="card" style="background: #f1f8e9; padding: 15px; margin-top: 15px;">
+            <h3 style="margin:0;">Laskuri: <span id="square-counter">0</span> / 25</h3>
+            <p style="font-size: 12px; text-align: center; margin: 5px 0 0 0;">(Tarvitset 25 näkyvää ruutua voidaksesi luoda bingolapun)</p>
+        </div>
+
+        <div id="accordion-container">
+            </div>
+
+        <button id="btn-make-bingo" onclick="generateBingo()" disabled>Tee Bingo 🎲</button>
+    </div>
+
+    <div id="game-view" class="view card">
+        <div class="header-bar">
+            <button class="btn-secondary back-btn" onclick="showView('lobby-view')">⬅ Takaisin aulaan</button>
+        </div>
+        <h2>Sinun Bingolappusi</h2>
+        <div id="bingo-board" class="bingo-grid"></div>
+    </div>
+
+</div>
+
+<script>
+    // --- TILA (STATE) ---
+    let currentUser = "";
+    let currentRoomName = "";
+    let currentRoomCode = "";
+    let openAccordions = new Set(["Yleiset"]); 
+
+    // Mallidata: Huoneet, joihin käyttäjä on liittynyt
+    let userRooms = [
+        { name: "Meidän mökki", code: "582914", members: 5 },
+        { name: "Juhannus 2026", code: "123456", members: 8 }
+    ];
+
+    // Mallidata: Ruutuehdotukset
+    let squaresData = {
+        "Yleiset": [
+            "Kokko sytytetään", "Joku avaa siiderin", "Makkara putoaa grilliin", 
+            "Hyttynen pistää", "Säästä valitetaan", "Vesi on kylmää", 
+            "Sauna on valmis", "Korttipeli päättyy riitaan", "Joku nukahtaa", 
+            "Puut loppuvat", "Lintu kakkii terassille", "Laturia etsitään", 
+            "Kysytään milloin syödään", "Outo sääntö peliin", "Joku laulaa iskelmää"
+        ],
+        "Liisa": ["Voittaa korttipelin", "Löytää punkin", "Menee uimaan", "Polttaa makkaran", "Unohtaa puhelimensa"],
+        "Kalle": ["Avaa oluen", "Kaataa juoman", "Sytyttää grillin", "Häviää pelin", "Sanoo 'Nonni'"]
+    };
+
+    function showView(viewId) {
+        document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+        document.getElementById(viewId).classList.add('active');
+    }
+
+    // --- 1. KIRJAUTUMINEN ---
+    function login() {
+        let nameInput = document.getElementById('username').value.trim();
+        let passInput = document.getElementById('password').value.trim();
+
+        if (!nameInput || !passInput) return alert("Syötä tunnus ja salasana!");
+        
+        currentUser = nameInput;
+        document.getElementById('dash-username').innerText = currentUser;
+        
+        // Varmistetaan, että käyttäjällä on oma kategoria ruuduille
+        if (!squaresData[currentUser] && currentUser !== "Yleiset") {
+            squaresData[currentUser] = [];
+        }
+
+        renderDashboard();
+        showView('dashboard-view');
+    }
+
+    // --- 2. KOJELAUTA (DASHBOARD) ---
+    function renderDashboard() {
+        let list = document.getElementById('room-list');
+        list.innerHTML = "";
+        
+        userRooms.forEach(room => {
+            let div = document.createElement('div');
+            div.className = "room-card";
+            div.innerHTML = `
+                <div class="room-title">🏕️ ${room.name}</div>
+                <div class="room-members">👤 ${room.members}</div>
+            `;
+            // Kun korttia klikataan, avataan huone
+            div.onclick = () => openRoom(room.name, room.code);
+            list.appendChild(div);
+        });
+    }
+
+    function promptCreateRoom() {
+        let rName = prompt("Anna uudelle huoneelle nimi:");
+        if (rName) {
+            let newCode = Math.floor(100000 + Math.random() * 900000).toString();
+            // Lisätään uusi huone listaan (mallidatassa oletetaan että olet eka jäsen = 1)
+            userRooms.push({ name: rName, code: newCode, members: 1 });
+            renderDashboard(); // Päivitetään näkymä
+            openRoom(rName, newCode); // Avataan uusi huone suoraan
+        }
+    }
+
+    function promptJoinRoom() {
+        let code = prompt("Syötä 6-numeroinen huonekoodi:");
+        if (code) {
+            // Lisätään listaan keksityllä nimellä demotarkoituksessa
+            userRooms.push({ name: "Uusi ryhmä", code: code, members: 2 });
+            renderDashboard();
+            openRoom("Uusi ryhmä", code);
+        }
+    }
+
+    // --- 3. HUONEEN AVAUS ---
+    function openRoom(name, code) {
+        currentRoomName = name;
+        currentRoomCode = code;
+        
+        document.getElementById('display-username').innerText = currentUser;
+        // Näytetään nimi ja koodi yläreunassa
+        document.getElementById('display-room-info').innerText = `${currentRoomName} (Koodi: ${currentRoomCode})`;
+
+        renderLobby();
+        showView('lobby-view');
+    }
+
+    // --- 4. HUONEEN LOGIIKKA (Vanha tuttu) ---
+    function renderLobby() {
+        const container = document.getElementById('accordion-container');
+        container.innerHTML = ""; 
+        let totalVisibleSquares = 0;
+
+        for (let category in squaresData) {
+            if (category.toLowerCase() === currentUser.toLowerCase()) continue;
+
+            const categorySquares = squaresData[category];
+            totalVisibleSquares += categorySquares.length;
+
+            let details = document.createElement('details');
+            if (openAccordions.has(category)) details.open = true;
+
+            details.addEventListener("toggle", function() {
+                if (details.open) openAccordions.add(category);
+                else openAccordions.delete(category);
+            });
+
+            let summary = document.createElement('summary');
+            summary.innerText = `${category} (${categorySquares.length} kpl)`;
+            details.appendChild(summary);
+
+            categorySquares.forEach((squareText, index) => {
+                let itemDiv = document.createElement('div');
+                itemDiv.className = "square-item";
+                itemDiv.innerHTML = `
+                    <span>${squareText}</span>
+                    <button class="delete-btn" onclick="deleteSquare('${category}', ${index})">Poista</button>
+                `;
+                details.appendChild(itemDiv);
+            });
+
+            // Inputin lisäyksessä tyylitelty CSS-luokalla "row"
+            let addRow = document.createElement('div');
+            addRow.className = "row";
+            addRow.style.marginTop = "10px";
+            addRow.innerHTML = `
+                <input type="text" id="input-${category}" placeholder="Lisää uusi ruutu...">
+                <button onclick="addSquare('${category}')">Lisää</button>
+            `;
+            details.appendChild(addRow);
+
+            container.appendChild(details);
+        }
+
+        document.getElementById('square-counter').innerText = totalVisibleSquares;
+        document.getElementById('btn-make-bingo').disabled = totalVisibleSquares < 25;
+    }
+
+    function addSquare(category) {
+        let input = document.getElementById(`input-${category}`);
+        let text = input.value.trim();
+        if (text !== "") {
+            squaresData[category].push(text);
+            renderLobby(); 
+        }
+    }
+
+    function deleteSquare(category, index) {
+        squaresData[category].splice(index, 1);
+        renderLobby();
+    }
+
+    // --- 5. BINGON GENEROINTI ---
+    function generateBingo() {
+        let allVisibleSquares = [];
+        
+        for (let category in squaresData) {
+            if (category.toLowerCase() !== currentUser.toLowerCase()) {
+                allVisibleSquares = allVisibleSquares.concat(squaresData[category]);
+            }
+        }
+
+        for (let i = allVisibleSquares.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [allVisibleSquares[i], allVisibleSquares[j]] = [allVisibleSquares[j], allVisibleSquares[i]];
+        }
+
+        let selectedSquares = allVisibleSquares.slice(0, 25);
+        renderBingoGrid(selectedSquares);
+        showView('game-view');
+    }
+
+    function renderBingoGrid(squaresArray) {
+        const board = document.getElementById('bingo-board');
+        board.innerHTML = ""; 
+
+        squaresArray.forEach(text => {
+            let cell = document.createElement('div');
+            cell.className = "bingo-cell";
+            cell.innerText = text;
+            cell.onclick = function() {
+                this.classList.toggle('marked');
+            };
+            board.appendChild(cell);
+        });
+    }
+</script>
+
 </body>
 </html>
