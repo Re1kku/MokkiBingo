@@ -1,35 +1,36 @@
+<!DOCTYPE html>
+<html lang="fi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mökkibingon Testisivu</title>
     <title>Mökkibingo</title>
     <style>
-        /* Täällä määritellään sivun ulkoasu (CSS) */
         /* PERUSTYYLIT */
         :root {
             --primary: #2e7d32;
-            --bg: #f4f7f6;
+            --bg: #e6f2ff; /* Vaaleansininen tausta */
             --card-bg: #ffffff;
             --text: #333;
         }
+        
         body {
-            font-family: Arial, sans-serif;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
             padding: 20px;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #e6f2ff; /* Vaaleansininen tausta */
+            min-height: 100vh;
         }
+
         .container {
             width: 100%;
             max-width: 500px;
         }
+
         .card {
             background: var(--card-bg);
             padding: 20px;
@@ -37,8 +38,13 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             margin-bottom: 20px;
         }
-        h1, h2, h3 { text-align: center; color: var(--primary); margin-top: 0; }
-        
+
+        h1, h2, h3 { 
+            text-align: center; 
+            color: var(--primary); 
+            margin-top: 0; 
+        }
+
         /* LOMAKKEET JA NAPIT */
         input {
             width: 100%;
@@ -49,6 +55,7 @@
             box-sizing: border-box;
             font-size: 15px;
         }
+
         button {
             width: 100%;
             padding: 12px;
@@ -61,9 +68,10 @@
             cursor: pointer;
             margin-top: 5px;
         }
+
         button:hover { filter: brightness(1.1); }
         button:disabled { background-color: #a5d6a7; cursor: not-allowed; }
-        
+
         .btn-secondary {
             background-color: #f5f5f5;
             color: #333;
@@ -85,19 +93,30 @@
             background: #fafafa;
             transition: all 0.2s;
         }
+
         .laatikko {
             text-align: center;
             padding: 40px;
             background-color: white;
             border-radius: 15px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1); /* Pieni varjo */
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 500px;
+            box-sizing: border-box;
+        }
+
         .room-card:hover { 
             background: #e8f5e9; 
             border-color: var(--primary); 
             transform: translateY(-2px);
         }
-        h1 {
+
+        /* Tässä korjattu h1-tyyli */
+        .laatikko h1 {
             color: #0055cc;
+        }
+
         .room-title { font-weight: bold; font-size: 16px; }
         .room-members { 
             font-size: 12px; 
@@ -158,68 +177,66 @@
     </style>
 </head>
 <body>
+
     <div class="laatikko">
         <h1>Vera on paras! 👋</h1>
         <p>GitHub Pages toimii hienosti. Seuraavaksi voin alkaa suunnitella Mökkibingoa!</p>
-
-<div class="container">
-
-    <div id="login-view" class="view active card">
-        <h1>🌲 Mökkibingo</h1>
-        <p style="text-align: center; color: #666;">Kirjaudu sisään pelitilillesi.</p>
-        
-        <input type="text" id="username" placeholder="Käyttäjänimi (esim. Matti)">
-        <input type="password" id="password" placeholder="Salasana">
-        <button onclick="login()">Kirjaudu sisään</button>
     </div>
 
-    <div id="dashboard-view" class="view card">
-        <div class="header-bar">
-            <h2 style="margin: 0;">Tervetuloa, <span id="dash-username"></span>!</h2>
-            <button class="btn-secondary back-btn" onclick="showView('login-view')">Kirjaudu ulos</button>
+    <div class="container">
+        <div id="login-view" class="view active card">
+            <h1>🌲 Mökkibingo</h1>
+            <p style="text-align: center; color: #666;">Kirjaudu sisään pelitilillesi.</p>
+            
+            <input type="text" id="username" placeholder="Käyttäjänimi (esim. Matti)">
+            <input type="password" id="password" placeholder="Salasana">
+            <button onclick="login()">Kirjaudu sisään</button>
         </div>
-        
-        <h3 style="text-align: left; margin-top: 20px;">Omat huoneesi</h3>
-        <div id="room-list">
+
+        <div id="dashboard-view" class="view card">
+            <div class="header-bar">
+                <h2 style="margin: 0;">Tervetuloa, <span id="dash-username"></span>!</h2>
+                <button class="btn-secondary back-btn" onclick="showView('login-view')">Kirjaudu ulos</button>
+            </div>
+            
+            <h3 style="text-align: left; margin-top: 20px;">Omat huoneesi</h3>
+            <div id="room-list"></div>
+
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+                <p style="margin: 0 0 10px 0; font-weight: bold;">Uusi peli?</p>
+                <div class="row">
+                    <button onclick="promptCreateRoom()">Luo uusi</button>
+                    <button onclick="promptJoinRoom()" style="background-color: #555;">Liity koodilla</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="lobby-view" class="view card">
+            <div class="header-bar">
+                <button class="btn-secondary back-btn" onclick="showView('dashboard-view')">⬅ Takaisin</button>
+                <span style="font-size: 14px; color: #666;">Pelaaja: <b id="display-username"></b></span>
             </div>
 
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-            <p style="margin: 0 0 10px 0; font-weight: bold;">Uusi peli?</p>
-            <div class="row">
-                <button onclick="promptCreateRoom()">Luo uusi</button>
-                <button onclick="promptJoinRoom()" style="background-color: #555;">Liity koodilla</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="lobby-view" class="view card">
-        <div class="header-bar">
-            <button class="btn-secondary back-btn" onclick="showView('dashboard-view')">⬅ Takaisin</button>
-            <span style="font-size: 14px; color: #666;">Pelaaja: <b id="display-username"></b></span>
-        </div>
-
-        <h3><span id="display-room-info"></span></h3>
-        
-        <div class="card" style="background: #f1f8e9; padding: 15px; margin-top: 15px;">
-            <h3 style="margin:0;">Laskuri: <span id="square-counter">0</span> / 25</h3>
-            <p style="font-size: 12px; text-align: center; margin: 5px 0 0 0;">(Tarvitset 25 näkyvää ruutua voidaksesi luoda bingolapun)</p>
-        </div>
-
-        <div id="accordion-container">
+            <h3><span id="display-room-info"></span></h3>
+            
+            <div class="card" style="background: #f1f8e9; padding: 15px; margin-top: 15px;">
+                <h3 style="margin:0;">Laskuri: <span id="square-counter">0</span> / 25</h3>
+                <p style="font-size: 12px; text-align: center; margin: 5px 0 0 0;">(Tarvitset 25 näkyvää ruutua voidaksesi luoda bingolapun)</p>
             </div>
 
-        <button id="btn-make-bingo" onclick="generateBingo()" disabled>Tee Bingo 🎲</button>
-    </div>
+            <div id="accordion-container"></div>
 
-    <div id="game-view" class="view card">
-        <div class="header-bar">
-            <button class="btn-secondary back-btn" onclick="showView('lobby-view')">⬅ Takaisin aulaan</button>
+            <button id="btn-make-bingo" onclick="generateBingo()" disabled>Tee Bingo 🎲</button>
         </div>
-        <h2>Sinun Bingolappusi</h2>
-        <div id="bingo-board" class="bingo-grid"></div>
-    </div>
 
-</div>
+        <div id="game-view" class="view card">
+            <div class="header-bar">
+                <button class="btn-secondary back-btn" onclick="showView('lobby-view')">⬅ Takaisin aulaan</button>
+            </div>
+            <h2>Sinun Bingolappusi</h2>
+            <div id="bingo-board" class="bingo-grid"></div>
+        </div>
+    </div>
 
 <script>
     // --- TILA (STATE) ---
@@ -323,7 +340,7 @@
         showView('lobby-view');
     }
 
-    // --- 4. HUONEEN LOGIIKKA (Vanha tuttu) ---
+    // --- 4. HUONEEN LOGIIKKA ---
     function renderLobby() {
         const container = document.getElementById('accordion-container');
         container.innerHTML = ""; 
@@ -357,7 +374,6 @@
                 details.appendChild(itemDiv);
             });
 
-            // Inputin lisäyksessä tyylitelty CSS-luokalla "row"
             let addRow = document.createElement('div');
             addRow.className = "row";
             addRow.style.marginTop = "10px";
