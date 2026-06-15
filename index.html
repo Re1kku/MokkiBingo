@@ -22,10 +22,11 @@
         .header-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
         .back-btn { width: auto; padding: 6px 12px; font-size: 12px; margin: 0; }
         .room-card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px; cursor: pointer; background: #fafafa; }
-        details { background: #e8f5e9; border-radius: 6px; margin-bottom: 10px; padding: 10px; }
+        details { background: #e8f5e9; border-radius: 6px; margin-bottom: 10px; padding: 10px; cursor: pointer; }
+        summary { font-weight: bold; padding: 5px 0; outline: none; }
         .square-item { display: flex; justify-content: space-between; align-items: center; background: white; padding: 8px; margin-top: 5px; border-radius: 4px; font-size: 14px; }
         .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-top: 20px; }
-        .bingo-cell { aspect-ratio: 1/1; background: white; border: 2px solid var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 10px; cursor: pointer; }
+        .bingo-cell { aspect-ratio: 1/1; background: white; border: 2px solid var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 10px; cursor: pointer; padding: 2px; }
         .bingo-cell.marked { background: var(--primary); color: white; }
     </style>
 </head>
@@ -84,7 +85,7 @@
         </div>
         <h2 id="room-name"></h2>
         <div id="accordion-container"></div>
-        <button id="btn-make-bingo" onclick="generateBingo()" disabled>Tee Bingo 🎲</button>
+        <button id="btn-make-bingo" onclick="generateBingo()" style="margin-top: 20px;" disabled>Tee Bingo 🎲</button>
     </div>
 
     <!-- PELI -->
@@ -96,9 +97,8 @@
 
 <script>
     // --- 1. SUPABASE ASETUKSET ---
-    const SUPABASE_URL = 'https://ylfzmklrmfxobvvcqtsh.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_fTJIHoHxYM9K2jBst4rGOw_Goppt2kt';
-    
+    const SUPABASE_URL = 'TÄHÄN_URL';
+    const SUPABASE_KEY = 'TÄHÄN_KEY';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let currentRoom = null;
@@ -226,8 +226,10 @@
         const container = document.getElementById('accordion-container');
         container.innerHTML = "";
         
-        // Luodaan oletuskategoriat: Yleiset + kaikki huoneen jäsenet
+        // Luodaan oletuskategoriat: Yleiset tulee aina ensimmäisenä
         const grouped = { 'Yleiset': [] };
+        
+        // Lisätään huoneen muut jäsenet kategorioiksi
         members.forEach(m => {
             if (m.username && m.username.toLowerCase() !== 'yleiset') {
                 grouped[m.username] = [];
@@ -242,11 +244,26 @@
 
         let total = 0;
         for (let cat in grouped) {
-            // Piilotetaan oma kategoria näkyvistä, jotta pelaaja ei lisää tekoja itselleen
+            // Piilotetaan oma kategoria näkyvistä
             if (cat.toLowerCase() === myName.toLowerCase()) continue;
             total += grouped[cat].length;
             
             const det = document.createElement('details');
+            
+            // "Yleiset" on auki oletuksena
+            if (cat === 'Yleiset') {
+                det.open = true;
+            }
+
+            // Haitariefekti: Sulkee muut kun yksi avataan
+            det.addEventListener('toggle', function() {
+                if (this.open) {
+                    container.querySelectorAll('details').forEach(otherDet => {
+                        if (otherDet !== this) otherDet.open = false;
+                    });
+                }
+            });
+            
             det.innerHTML = `<summary>${cat} (${grouped[cat].length})</summary>`;
             
             grouped[cat].forEach(s => {
@@ -256,19 +273,10 @@
                     <button class="delete-btn" style="background:red; color:white; border:none; border-radius:4px; padding:2px 6px;" onclick="deleteSquare(${s.id})">X</button>
                 </div>`;
             });
+            
             det.innerHTML += `<div class="row" style="margin-top:10px;"><input type="text" id="in-${cat}" placeholder="Uusi teko..."><button style="width:auto" onclick="addSq('${cat}')">Lisää</button></div>`;
             container.appendChild(det);
         }
-        
-        // Mukautettujen kategorioiden luonti (jos halutaan lisätä jokin muu kuin jäsen tai Yleiset)
-        container.innerHTML += `
-        <div style="margin-top: 20px; border-top: 1px solid #ccc; padding-top: 15px;">
-            <h4>Lisää mukautettu kategoria</h4>
-            <div class="row">
-                <input type="text" id="new-category-name" placeholder="Esim. Saunasäännöt">
-                <button style="width:auto" onclick="addNewCategory()">Luo</button>
-            </div>
-        </div>`;
 
         const btn = document.getElementById('btn-make-bingo');
         btn.disabled = total < 25;
@@ -279,13 +287,6 @@
         const val = document.getElementById('in-'+cat).value.trim();
         if (!val) return;
         await supabaseClient.from('squares').insert([{ room_code: currentRoom, category: cat, text_content: val }]);
-        openRoom(document.getElementById('room-name').innerText.split(" ")[0], currentRoom);
-    }
-
-    async function addNewCategory() {
-        const cat = document.getElementById('new-category-name').value.trim();
-        if (!cat) return;
-        await supabaseClient.from('squares').insert([{ room_code: currentRoom, category: cat, text_content: 'Ensimmäinen ruutu!' }]);
         openRoom(document.getElementById('room-name').innerText.split(" ")[0], currentRoom);
     }
 
