@@ -32,6 +32,7 @@
 <body>
 
 <div class="container">
+    <!-- KIRJAUTUMINEN -->
     <div id="login-view" class="view active card">
         <h1>🌲 Mökkibingo Pro</h1>
         <input type="email" id="login-email" placeholder="Sähköposti">
@@ -40,15 +41,18 @@
         <button onclick="showView('register-view')" class="btn-secondary">Luo uusi käyttäjä</button>
     </div>
 
+    <!-- REKISTERÖINTI -->
     <div id="register-view" class="view card">
         <h1>Uusi käyttäjä</h1>
         <input type="text" id="reg-name" placeholder="Pelinimesi/Nimimerkkisi (esim. Matti)">
         <input type="email" id="reg-email" placeholder="Sähköposti">
         <input type="password" id="reg-password" placeholder="Salasana">
+        <input type="password" id="reg-password-confirm" placeholder="Vahvista salasana">
         <button onclick="auth('register')">Luo tunnus</button>
         <button onclick="showView('login-view')" class="btn-secondary">Takaisin</button>
     </div>
 
+    <!-- DASHBOARD -->
     <div id="dashboard-view" class="view card">
         <div class="header-bar">
             <h3>Moi, <span id="display-my-name"></span>!</h3>
@@ -57,6 +61,7 @@
         
         <div id="room-list">Ladataan huoneita...</div>
         
+        <!-- HUONEEN LUONTI / LIITTYMINEN -->
         <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
             <h4 style="margin-bottom: 5px;">➕ Luo uusi huone</h4>
             <div class="row">
@@ -72,6 +77,7 @@
         </div>
     </div>
 
+    <!-- HUONE (AULA) -->
     <div id="lobby-view" class="view card">
         <div class="header-bar">
             <button class="btn-secondary back-btn" onclick="showDashboard()">⬅ Takaisin</button>
@@ -81,6 +87,7 @@
         <button id="btn-make-bingo" onclick="generateBingo()" disabled>Tee Bingo 🎲</button>
     </div>
 
+    <!-- PELI -->
     <div id="game-view" class="view card">
         <button class="btn-secondary back-btn" onclick="showView('lobby-view')">⬅ Aulaan</button>
         <div id="bingo-board" class="bingo-grid"></div>
@@ -91,12 +98,12 @@
     // --- 1. SUPABASE ASETUKSET ---
     const SUPABASE_URL = 'https://ylfzmklrmfxobvvcqtsh.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_fTJIHoHxYM9K2jBst4rGOw_Goppt2kt';
+    
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let currentRoom = null;
     let myName = "";
 
-    // Tarkistetaan onko käyttäjä jo kirjautunut (esim. sivun päivityksen jälkeen)
     supabaseClient.auth.getSession().then(({ data: { session } }) => {
         if (session) {
             showDashboard(session.user);
@@ -114,8 +121,10 @@
             const name = document.getElementById('reg-name').value.trim();
             const email = document.getElementById('reg-email').value.trim();
             const pass = document.getElementById('reg-password').value;
+            const passConfirm = document.getElementById('reg-password-confirm').value;
             
-            if (!name || !email || !pass) return alert("Täytä kaikki kentät!");
+            if (!name || !email || !pass || !passConfirm) return alert("Täytä kaikki kentät!");
+            if (pass !== passConfirm) return alert("Salasanat eivät täsmää!");
 
             const { data, error } = await supabaseClient.auth.signUp({ 
                 email, 
@@ -126,7 +135,9 @@
             if (error) return alert("Virhe: " + error.message);
             alert("Tunnus luotu! Voit nyt kirjautua sisään.");
             showView('login-view');
-            document.getElementById('reg-password').value = ""; // Tyhjennetään salasana
+            
+            document.getElementById('reg-password').value = ""; 
+            document.getElementById('reg-password-confirm').value = ""; 
             
         } else {
             const email = document.getElementById('login-email').value.trim();
@@ -137,7 +148,7 @@
             const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
             if (error) return alert("Virhe: " + error.message);
             showDashboard(data.user);
-            document.getElementById('login-password').value = ""; // Tyhjennetään salasana
+            document.getElementById('login-password').value = ""; 
         }
     }
 
@@ -145,18 +156,15 @@
     async function showDashboard(passedUser) {
         showView('dashboard-view');
         
-        // Varmistetaan että meillä on käyttäjäobjekti (haetaan tietokannasta, jos ei tullut funktion parametrina)
         let user = passedUser;
         if (!user) {
             const response = await supabaseClient.auth.getUser();
             user = response.data.user;
         }
         
-        // Asetetaan käyttäjän nimimerkki käyttöliittymään
         myName = user.user_metadata?.display_name || user.email.split('@')[0];
         document.getElementById('display-my-name').innerText = myName;
         
-        // Haetaan huoneet
         const { data: rooms, error } = await supabaseClient.from('room_members').select('room_code, rooms(name), username').eq('user_id', user.id);
         const safeRooms = rooms || []; 
 
@@ -204,24 +212,37 @@
         currentRoom = code;
         document.getElementById('room-name').innerText = name + " (" + code + ")";
         showView('lobby-view');
-        const { data } = await supabaseClient.from('squares').select('*').eq('room_code', code);
-        renderLobby(data || []);
+        
+        // Haetaan samanaikaisesti ruudut sekä huoneen jäsenet
+        const [squaresRes, membersRes] = await Promise.all([
+            supabaseClient.from('squares').select('*').eq('room_code', code),
+            supabaseClient.from('room_members').select('username').eq('room_code', code)
+        ]);
+
+        renderLobby(squaresRes.data || [], membersRes.data || []);
     }
 
-    function renderLobby(data) {
+    function renderLobby(data, members) {
         const container = document.getElementById('accordion-container');
         container.innerHTML = "";
         
-        // Ryhmitellään ruudut kategorioittain
-        const grouped = data.reduce((acc, s) => {
-            if (!acc[s.category]) acc[s.category] = [];
-            acc[s.category].push(s);
-            return acc;
-        }, {});
+        // Luodaan oletuskategoriat: Yleiset + kaikki huoneen jäsenet
+        const grouped = { 'Yleiset': [] };
+        members.forEach(m => {
+            if (m.username && m.username.toLowerCase() !== 'yleiset') {
+                grouped[m.username] = [];
+            }
+        });
+
+        // Sijoitetaan tietokannan ruudut oikeisiin kategorioihin
+        data.forEach(s => {
+            if (!grouped[s.category]) grouped[s.category] = [];
+            grouped[s.category].push(s);
+        });
 
         let total = 0;
         for (let cat in grouped) {
-            // Jätetään oma kategoria näyttämättä muille, jottei omia tekoja voi laittaa omaan bingoon
+            // Piilotetaan oma kategoria näkyvistä, jotta pelaaja ei lisää tekoja itselleen
             if (cat.toLowerCase() === myName.toLowerCase()) continue;
             total += grouped[cat].length;
             
@@ -239,17 +260,16 @@
             container.appendChild(det);
         }
         
-        // Alareunan "Lisää uusi kategoria" laatikko
+        // Mukautettujen kategorioiden luonti (jos halutaan lisätä jokin muu kuin jäsen tai Yleiset)
         container.innerHTML += `
         <div style="margin-top: 20px; border-top: 1px solid #ccc; padding-top: 15px;">
-            <h4>Lisää uusi kategoria/pelaaja</h4>
+            <h4>Lisää mukautettu kategoria</h4>
             <div class="row">
-                <input type="text" id="new-category-name" placeholder="Esim. Yleiset tai Liisa">
+                <input type="text" id="new-category-name" placeholder="Esim. Saunasäännöt">
                 <button style="width:auto" onclick="addNewCategory()">Luo</button>
             </div>
         </div>`;
 
-        // Nappi aktivoituu vasta kun vähintään 25 ruutua
         const btn = document.getElementById('btn-make-bingo');
         btn.disabled = total < 25;
         btn.innerText = `Tee Bingo 🎲 (${total}/25)`;
