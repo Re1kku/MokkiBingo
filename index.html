@@ -3,144 +3,294 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mökkibingo - Vain Kirjautuminen</title>
+    <title>Mökkibingo Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #2e7d32; --bg: #f4f7f6; --card-bg: #ffffff; --text: #333; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; justify-content: center; }
-        .container { width: 100%; max-width: 400px; }
+        .container { width: 100%; max-width: 500px; }
         .card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        h1, h2 { text-align: center; color: var(--primary); margin-top: 0; }
+        h1, h2, h3, h4 { color: var(--primary); margin-top: 0; }
+        h1, h2, h3 { text-align: center; }
         input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
         button { width: 100%; padding: 12px; background-color: var(--primary); color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 5px; }
+        button:disabled { background-color: #a5d6a7; cursor: not-allowed; }
         .btn-secondary { background-color: #f5f5f5; color: #333; border: 1px solid #ccc; }
+        .row { display: flex; gap: 10px; align-items: center; }
         .view { display: none; }
         .view.active { display: block; }
+        .header-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
+        .back-btn { width: auto; padding: 6px 12px; font-size: 12px; margin: 0; }
+        .room-card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px; cursor: pointer; background: #fafafa; }
+        details { background: #e8f5e9; border-radius: 6px; margin-bottom: 10px; padding: 10px; }
+        .square-item { display: flex; justify-content: space-between; align-items: center; background: white; padding: 8px; margin-top: 5px; border-radius: 4px; font-size: 14px; }
+        .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-top: 20px; }
+        .bingo-cell { aspect-ratio: 1/1; background: white; border: 2px solid var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 10px; cursor: pointer; }
+        .bingo-cell.marked { background: var(--primary); color: white; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    
     <div id="login-view" class="view active card">
-        <h1>🌲 Kirjaudu</h1>
+        <h1>🌲 Mökkibingo Pro</h1>
         <input type="email" id="login-email" placeholder="Sähköposti">
         <input type="password" id="login-password" placeholder="Salasana">
-        <button onclick="loginUser()">Kirjaudu sisään</button>
+        <button onclick="auth('login')">Kirjaudu sisään</button>
         <button onclick="showView('register-view')" class="btn-secondary">Luo uusi käyttäjä</button>
     </div>
 
     <div id="register-view" class="view card">
         <h1>Uusi käyttäjä</h1>
-        <input type="text" id="reg-name" placeholder="Nimimerkkisi (esim. Matti)">
+        <input type="text" id="reg-name" placeholder="Pelinimesi/Nimimerkkisi (esim. Matti)">
         <input type="email" id="reg-email" placeholder="Sähköposti">
         <input type="password" id="reg-password" placeholder="Salasana">
-        <button onclick="registerUser()">Luo tunnus</button>
-        <button onclick="showView('login-view')" class="btn-secondary">Palaa takaisin</button>
+        <button onclick="auth('register')">Luo tunnus</button>
+        <button onclick="showView('login-view')" class="btn-secondary">Takaisin</button>
     </div>
 
     <div id="dashboard-view" class="view card">
-        <h2>Tervetuloa sisään!</h2>
-        <p style="text-align: center;">Olet kirjautunut nimellä: <br><b id="display-name" style="font-size: 20px; color: var(--primary);"></b></p>
-        <p style="text-align: center; color: #666;">Sähköpostisi on: <span id="display-email"></span></p>
+        <div class="header-bar">
+            <h3>Moi, <span id="display-my-name"></span>!</h3>
+            <button class="btn-secondary back-btn" onclick="supabaseClient.auth.signOut().then(() => location.reload())">Ulos</button>
+        </div>
         
-        <button onclick="logoutUser()" style="margin-top: 30px;" class="btn-secondary">Kirjaudu ulos</button>
+        <div id="room-list">Ladataan huoneita...</div>
+        
+        <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+            <h4 style="margin-bottom: 5px;">➕ Luo uusi huone</h4>
+            <div class="row">
+                <input type="text" id="new-room-name" placeholder="Huoneen nimi">
+                <button onclick="createRoom()" style="width:auto; margin:0;">Luo</button>
+            </div>
+            
+            <h4 style="margin-top: 15px; margin-bottom: 5px;">🔑 Liity koodilla</h4>
+            <div class="row">
+                <input type="text" id="join-room-code" placeholder="6-numeroinen koodi">
+                <button onclick="joinRoom()" class="btn-secondary" style="width:auto; margin:0;">Liity</button>
+            </div>
+        </div>
     </div>
 
+    <div id="lobby-view" class="view card">
+        <div class="header-bar">
+            <button class="btn-secondary back-btn" onclick="showDashboard()">⬅ Takaisin</button>
+        </div>
+        <h2 id="room-name"></h2>
+        <div id="accordion-container"></div>
+        <button id="btn-make-bingo" onclick="generateBingo()" disabled>Tee Bingo 🎲</button>
+    </div>
+
+    <div id="game-view" class="view card">
+        <button class="btn-secondary back-btn" onclick="showView('lobby-view')">⬅ Aulaan</button>
+        <div id="bingo-board" class="bingo-grid"></div>
+    </div>
 </div>
 
 <script>
-    // 1. SUPABASE YHTEYS
+    // --- 1. SUPABASE ASETUKSET ---
     const SUPABASE_URL = 'https://ylfzmklrmfxobvvcqtsh.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_fTJIHoHxYM9K2jBst4rGOw_Goppt2kt';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // 2. NÄKYMIEN VAIHTO
+    let currentRoom = null;
+    let myName = "";
+
+    // Tarkistetaan onko käyttäjä jo kirjautunut (esim. sivun päivityksen jälkeen)
+    supabaseClient.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+            showDashboard(session.user);
+        }
+    });
+
     function showView(id) {
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         document.getElementById(id).classList.add('active');
     }
 
-    // 3. TARKISTETAAN ONKO KÄYTTÄJÄ JO SISÄLLÄ (Sivun päivitys)
-    supabaseClient.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-            console.log("Käyttäjä löytyi muistista!");
-            showDashboard(session.user);
+    // --- 2. AUTH: Kirjautuminen ja Rekisteröinti ---
+    async function auth(type) {
+        if (type === 'register') {
+            const name = document.getElementById('reg-name').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const pass = document.getElementById('reg-password').value;
+            
+            if (!name || !email || !pass) return alert("Täytä kaikki kentät!");
+
+            const { data, error } = await supabaseClient.auth.signUp({ 
+                email, 
+                password: pass,
+                options: { data: { display_name: name } }
+            });
+
+            if (error) return alert("Virhe: " + error.message);
+            alert("Tunnus luotu! Voit nyt kirjautua sisään.");
+            showView('login-view');
+            document.getElementById('reg-password').value = ""; // Tyhjennetään salasana
+            
+        } else {
+            const email = document.getElementById('login-email').value.trim();
+            const pass = document.getElementById('login-password').value;
+            
+            if (!email || !pass) return alert("Syötä sähköposti ja salasana!");
+
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
+            if (error) return alert("Virhe: " + error.message);
+            showDashboard(data.user);
+            document.getElementById('login-password').value = ""; // Tyhjennetään salasana
         }
-    });
-
-    // 4. REKISTERÖINTI
-    async function registerUser() {
-        const name = document.getElementById('reg-name').value.trim();
-        const email = document.getElementById('reg-email').value.trim();
-        const password = document.getElementById('reg-password').value;
-        
-        if (!name || !email || !password) return alert("Täytä kaikki kentät!");
-
-        console.log("Yritetään luoda tunnus...");
-        
-        const { data, error } = await supabaseClient.auth.signUp({ 
-            email: email, 
-            password: password,
-            options: { data: { display_name: name } }
-        });
-
-        if (error) {
-            console.error(error);
-            return alert("Virhe: " + error.message);
-        }
-
-        alert("Tunnus luotu! Voit nyt kirjautua sisään.");
-        showView('login-view');
-        
-        // Tyhjennetään kentät
-        document.getElementById('reg-password').value = "";
     }
 
-    // 5. KIRJAUTUMINEN
-    async function loginUser() {
-        const email = document.getElementById('login-email').value.trim();
-        const password = document.getElementById('login-password').value;
-        
-        if (!email || !password) return alert("Syötä sähköposti ja salasana!");
-
-        console.log("Yritetään kirjautua...");
-
-        const { data, error } = await supabaseClient.auth.signInWithPassword({ 
-            email: email, 
-            password: password 
-        });
-
-        if (error) {
-            console.error(error);
-            return alert("Virhe: " + error.message);
-        }
-
-        console.log("Kirjautuminen onnistui!");
-        showDashboard(data.user);
-        
-        // Tyhjennetään salasanakenttä
-        document.getElementById('login-password').value = "";
-    }
-
-    // 6. ULOSKIRJAUTUMINEN
-    async function logoutUser() {
-        console.log("Kirjaudutaan ulos...");
-        await supabaseClient.auth.signOut();
-        showView('login-view');
-    }
-
-    // 7. KOJELAUDAN PÄIVITYS
-    function showDashboard(user) {
+    // --- 3. DASHBOARD ---
+    async function showDashboard(passedUser) {
         showView('dashboard-view');
         
-        // Haetaan nimi metadatasta, tai jos sitä ei ole, näytetään 'Nimetön pelaaja'
-        const myName = user.user_metadata?.display_name || "Nimetön pelaaja";
+        // Varmistetaan että meillä on käyttäjäobjekti (haetaan tietokannasta, jos ei tullut funktion parametrina)
+        let user = passedUser;
+        if (!user) {
+            const response = await supabaseClient.auth.getUser();
+            user = response.data.user;
+        }
         
-        document.getElementById('display-name').innerText = myName;
-        document.getElementById('display-email').innerText = user.email;
+        // Asetetaan käyttäjän nimimerkki käyttöliittymään
+        myName = user.user_metadata?.display_name || user.email.split('@')[0];
+        document.getElementById('display-my-name').innerText = myName;
+        
+        // Haetaan huoneet
+        const { data: rooms, error } = await supabaseClient.from('room_members').select('room_code, rooms(name), username').eq('user_id', user.id);
+        const safeRooms = rooms || []; 
+
+        const list = document.getElementById('room-list');
+        list.innerHTML = safeRooms.length ? "" : "Et ole vielä yhdessäkään huoneessa. Luo uusi tai liity olemassa olevaan alta!";
+        
+        safeRooms.forEach(r => {
+            const div = document.createElement('div');
+            div.className = "room-card";
+            div.innerHTML = `<b>${r.rooms.name}</b><br><small>Koodi: ${r.room_code}</small>`;
+            div.onclick = () => { openRoom(r.rooms.name, r.room_code); };
+            list.appendChild(div);
+        });
     }
 
+    // --- 4. HUONEEN LUONTI JA LIITTYMINEN ---
+    async function createRoom() {
+        const input = document.getElementById('new-room-name');
+        const name = input.value.trim();
+        if (!name) return alert("Kirjoita huoneelle nimi!");
+        
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        await supabaseClient.from('rooms').insert([{ code, name }]);
+        await supabaseClient.from('room_members').insert([{ room_code: code, username: myName }]);
+        
+        input.value = ""; 
+        showDashboard();
+    }
+
+    async function joinRoom() {
+        const input = document.getElementById('join-room-code');
+        const code = input.value.trim();
+        if (!code) return alert("Anna huonekoodi!");
+        
+        const { error } = await supabaseClient.from('room_members').insert([{ room_code: code, username: myName }]);
+        if (error) alert("Huonetta ei löydy tai olet jo liittynyt siihen."); 
+        
+        input.value = ""; 
+        showDashboard();
+    }
+
+    // --- 5. HUONEEN AULA JA RUUDUT ---
+    async function openRoom(name, code) {
+        currentRoom = code;
+        document.getElementById('room-name').innerText = name + " (" + code + ")";
+        showView('lobby-view');
+        const { data } = await supabaseClient.from('squares').select('*').eq('room_code', code);
+        renderLobby(data || []);
+    }
+
+    function renderLobby(data) {
+        const container = document.getElementById('accordion-container');
+        container.innerHTML = "";
+        
+        // Ryhmitellään ruudut kategorioittain
+        const grouped = data.reduce((acc, s) => {
+            if (!acc[s.category]) acc[s.category] = [];
+            acc[s.category].push(s);
+            return acc;
+        }, {});
+
+        let total = 0;
+        for (let cat in grouped) {
+            // Jätetään oma kategoria näyttämättä muille, jottei omia tekoja voi laittaa omaan bingoon
+            if (cat.toLowerCase() === myName.toLowerCase()) continue;
+            total += grouped[cat].length;
+            
+            const det = document.createElement('details');
+            det.innerHTML = `<summary>${cat} (${grouped[cat].length})</summary>`;
+            
+            grouped[cat].forEach(s => {
+                det.innerHTML += `
+                <div class="square-item">
+                    <span>${s.text_content}</span>
+                    <button class="delete-btn" style="background:red; color:white; border:none; border-radius:4px; padding:2px 6px;" onclick="deleteSquare(${s.id})">X</button>
+                </div>`;
+            });
+            det.innerHTML += `<div class="row" style="margin-top:10px;"><input type="text" id="in-${cat}" placeholder="Uusi teko..."><button style="width:auto" onclick="addSq('${cat}')">Lisää</button></div>`;
+            container.appendChild(det);
+        }
+        
+        // Alareunan "Lisää uusi kategoria" laatikko
+        container.innerHTML += `
+        <div style="margin-top: 20px; border-top: 1px solid #ccc; padding-top: 15px;">
+            <h4>Lisää uusi kategoria/pelaaja</h4>
+            <div class="row">
+                <input type="text" id="new-category-name" placeholder="Esim. Yleiset tai Liisa">
+                <button style="width:auto" onclick="addNewCategory()">Luo</button>
+            </div>
+        </div>`;
+
+        // Nappi aktivoituu vasta kun vähintään 25 ruutua
+        const btn = document.getElementById('btn-make-bingo');
+        btn.disabled = total < 25;
+        btn.innerText = `Tee Bingo 🎲 (${total}/25)`;
+    }
+
+    async function addSq(cat) {
+        const val = document.getElementById('in-'+cat).value.trim();
+        if (!val) return;
+        await supabaseClient.from('squares').insert([{ room_code: currentRoom, category: cat, text_content: val }]);
+        openRoom(document.getElementById('room-name').innerText.split(" ")[0], currentRoom);
+    }
+
+    async function addNewCategory() {
+        const cat = document.getElementById('new-category-name').value.trim();
+        if (!cat) return;
+        await supabaseClient.from('squares').insert([{ room_code: currentRoom, category: cat, text_content: 'Ensimmäinen ruutu!' }]);
+        openRoom(document.getElementById('room-name').innerText.split(" ")[0], currentRoom);
+    }
+
+    async function deleteSquare(id) {
+        await supabaseClient.from('squares').delete().eq('id', id);
+        openRoom(document.getElementById('room-name').innerText.split(" ")[0], currentRoom);
+    }
+
+    // --- 6. BINGORUUDUKON LUONTI ---
+    async function generateBingo() {
+        const { data } = await supabaseClient.from('squares').select('*').eq('room_code', currentRoom);
+        const filtered = data.filter(s => s.category.toLowerCase() !== myName.toLowerCase()).map(s => s.text_content);
+        const shuffled = filtered.sort(() => 0.5 - Math.random()).slice(0, 25);
+        
+        const board = document.getElementById('bingo-board');
+        board.innerHTML = "";
+        shuffled.forEach(t => {
+            const c = document.createElement('div');
+            c.className = "bingo-cell"; 
+            c.innerText = t;
+            c.onclick = () => c.classList.toggle('marked');
+            board.appendChild(c);
+        });
+        showView('game-view');
+    }
 </script>
 </body>
 </html>
