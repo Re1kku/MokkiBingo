@@ -20,14 +20,30 @@
         .view { display: none; }
         .view.active { display: block; }
         .header-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
-        .back-btn { width: auto; padding: 6px 12px; font-size: 12px; margin: 0; }
+        .back-btn { width: auto; padding: 6px 12px; font-size: 14px; margin: 0; }
         .room-card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px; cursor: pointer; background: #fafafa; }
         
+        /* INFO PANEELI AULASSA */
+        .room-meta-info { background: #f0f4f1; border-radius: 8px; padding: 10px; font-size: 14px; margin-bottom: 15px; border-left: 4px solid var(--primary); }
+        
+        /* ESI-RUUTU / PREVIEW PANEELI */
+        .preview-box { background: #e3f2fd; border: 1px solid #90caf9; border-radius: 8px; padding: 15px; margin-top: 10px; display: none; }
+
         /* HAITARIN TYYLIT */
         details { background: #e8f5e9; border-radius: 6px; margin-bottom: 10px; padding: 10px; cursor: pointer; }
-        summary { font-weight: bold; padding: 5px 0; outline: none; }
+        summary { font-weight: bold; padding: 5px 0; display: flex; justify-content: space-between; align-items: center; outline: none; }
         
         .square-item { display: flex; justify-content: space-between; align-items: center; background: white; padding: 8px; margin-top: 5px; border-radius: 4px; font-size: 14px; }
+        
+        button.delete-btn { width: 30px; height: 30px; padding: 0; margin: 0 0 0 10px; background-color: #e53935; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+        .kick-btn { background-color: #d32f2f; font-size: 11px; padding: 4px 8px; width: auto; margin: 0; }
+
+        /* UUDET ASETUSVALIKON TYYLIT */
+        .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: white; border: 1px solid #e0e0e0; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; min-width: 160px; margin-top: 5px; overflow: hidden; }
+        .dropdown-menu.active { display: block; }
+        .dropdown-item { width: 100%; padding: 12px 15px; background: none; border: none; text-align: left; color: #d32f2f; cursor: pointer; border-radius: 0; margin: 0; font-weight: bold; font-size: 14px; }
+        .dropdown-item:hover { background: #feebee; }
+
         .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-top: 20px; }
         .bingo-cell { aspect-ratio: 1/1; background: white; border: 2px solid var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 10px; cursor: pointer; padding: 2px; }
         .bingo-cell.marked { background: var(--primary); color: white; }
@@ -72,16 +88,36 @@
             <h4 style="margin-top: 15px; margin-bottom: 5px;">🔑 Liity koodilla</h4>
             <div class="row">
                 <input type="text" id="join-room-code" placeholder="6-numeroinen koodi">
-                <button onclick="joinRoom()" class="btn-secondary" style="width:auto; margin:0;">Liity</button>
+                <button onclick="checkRoomPreview()" class="btn-secondary" style="width:auto; margin:0;">Tarkista</button>
+            </div>
+
+            <div id="room-preview-box" class="preview-box">
+                <h4 style="color:#0d47a1; margin-bottom:5px;">Huone löydetty!</h4>
+                <p style="margin: 3px 0;"><b>Nimi:</b> <span id="prev-room-name"></span></p>
+                <p style="margin: 3px 0;"><b>Luoja:</b> <span id="prev-room-creator"></span></p>
+                <p style="margin: 3px 0;"><b>Pelaajia tällä hetkellä:</b> <span id="prev-room-count"></span></p>
+                <div class="row" style="margin-top: 10px;">
+                    <button onclick="confirmJoinRoom()" style="margin:0;">Kyllä, liity huoneeseen!</button>
+                    <button onclick="cancelPreview()" class="btn-secondary" style="margin:0;">Peruuta</button>
+                </div>
             </div>
         </div>
     </div>
 
     <div id="lobby-view" class="view card">
-        <div class="header-bar">
+        <div class="header-bar" style="position: relative;">
             <button class="btn-secondary back-btn" onclick="showDashboard()">⬅ Takaisin</button>
+            
+            <div style="position: relative;">
+                <button id="menu-btn" class="btn-secondary back-btn" onclick="toggleRoomMenu()" style="font-size: 18px; padding: 4px 12px;">⋮</button>
+                <div id="room-settings-menu" class="dropdown-menu">
+                    <button class="dropdown-item" onclick="leaveRoom()">Poistu huoneesta</button>
+                </div>
+            </div>
         </div>
         <h2 id="room-name"></h2>
+        
+        <div id="room-info-bar" class="room-meta-info"></div>
         <div id="accordion-container"></div>
         <button id="btn-make-bingo" onclick="generateBingo()" style="margin-top: 20px;" disabled>Tee Bingo 🎲</button>
     </div>
@@ -100,6 +136,7 @@
 
     let currentRoom = null;
     let myName = "";
+    let myId = "";
 
     supabaseClient.auth.getSession().then(({ data: { session } }) => {
         if (session) {
@@ -110,6 +147,24 @@
     function showView(id) {
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         document.getElementById(id).classList.add('active');
+        
+        // Suljetaan asetusvalikko aina kun näkymä vaihtuu
+        document.getElementById('room-settings-menu').classList.remove('active');
+    }
+
+    // --- UUDET VALIKKOFUNKTIOIT ---
+    function toggleRoomMenu() {
+        document.getElementById('room-settings-menu').classList.toggle('active');
+    }
+
+    // Sulkee valikon jos klikataan sen ulkopuolelle
+    window.onclick = function(event) {
+        if (!event.target.matches('#menu-btn')) {
+            const menu = document.getElementById('room-settings-menu');
+            if (menu.classList.contains('active')) {
+                menu.classList.remove('active');
+            }
+        }
     }
 
     // --- 2. AUTH: Kirjautuminen ja Rekisteröinti ---
@@ -124,15 +179,12 @@
             if (pass !== passConfirm) return alert("Salasanat eivät täsmää!");
 
             const { data, error } = await supabaseClient.auth.signUp({ 
-                email, 
-                password: pass,
-                options: { data: { display_name: name } }
+                email, password: pass, options: { data: { display_name: name } }
             });
 
             if (error) return alert("Virhe: " + error.message);
             alert("Tunnus luotu! Voit nyt kirjautua sisään.");
             showView('login-view');
-            
             document.getElementById('reg-password').value = ""; 
             document.getElementById('reg-password-confirm').value = ""; 
             
@@ -152,6 +204,7 @@
     // --- 3. DASHBOARD ---
     async function showDashboard(passedUser) {
         showView('dashboard-view');
+        cancelPreview();
         
         let user = passedUser;
         if (!user) {
@@ -159,10 +212,11 @@
             user = response.data.user;
         }
         
+        myId = user.id;
         myName = user.user_metadata?.display_name || user.email.split('@')[0];
         document.getElementById('display-my-name').innerText = myName;
         
-        const { data: rooms, error } = await supabaseClient.from('room_members').select('room_code, rooms(name), username').eq('user_id', user.id);
+        const { data: rooms, error } = await supabaseClient.from('room_members').select('room_code, rooms(name, creator_name), username').eq('user_id', user.id);
         const safeRooms = rooms || []; 
 
         const list = document.getElementById('room-list');
@@ -171,13 +225,13 @@
         safeRooms.forEach(r => {
             const div = document.createElement('div');
             div.className = "room-card";
-            div.innerHTML = `<b>${r.rooms.name}</b><br><small>Koodi: ${r.room_code}</small>`;
+            div.innerHTML = `<b>${r.rooms.name}</b><br><small>Koodi: ${r.room_code} | Luoja: ${r.rooms.creator_name || 'Tuntematon'}</small>`;
             div.onclick = () => { openRoom(r.rooms.name, r.room_code); };
             list.appendChild(div);
         });
     }
 
-    // --- 4. HUONEEN LUONTI JA LIITTYMINEN ---
+    // --- 4. HUONEEN LUONTI, ESI-RUUTU JA POISTUMINEN ---
     async function createRoom() {
         const input = document.getElementById('new-room-name');
         const name = input.value.trim();
@@ -185,34 +239,59 @@
         
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         
-        await supabaseClient.from('rooms').insert([{ code, name }]);
+        await supabaseClient.from('rooms').insert([{ code, name, creator_name: myName }]);
         await supabaseClient.from('room_members').insert([{ room_code: code, username: myName }]);
-        
-        // LUODAAN HETI OLETUSKATEGORIAT (Ohittaa RLS-rajoitteet muiden jäsenten näkemiseen)
-        await supabaseClient.from('squares').insert([
-            { room_code: code, category: 'Yleiset', text_content: 'Keksi ensimmäinen yleinen teko!' },
-            { room_code: code, category: myName, text_content: 'Saapui mökille' }
-        ]);
         
         input.value = ""; 
         showDashboard();
     }
 
-    async function joinRoom() {
-        const input = document.getElementById('join-room-code');
-        const code = input.value.trim();
+    async function checkRoomPreview() {
+        const code = document.getElementById('join-room-code').value.trim();
         if (!code) return alert("Anna huonekoodi!");
-        
-        const { error } = await supabaseClient.from('room_members').insert([{ room_code: code, username: myName }]);
-        if (error) return alert("Huonetta ei löydy tai olet jo liittynyt siihen."); 
-        
-        // LUODAAN LIITTYJÄLLE HETI OMA KATEGORIA JA ENSIMMÄINEN RUUTU
-        await supabaseClient.from('squares').insert([
-            { room_code: code, category: myName, text_content: 'Liittyi peliin' }
+
+        const [roomRes, membersRes] = await Promise.all([
+            supabaseClient.from('rooms').select('*').eq('code', code).single(),
+            supabaseClient.from('room_members').select('username').eq('room_code', code)
         ]);
+
+        if (roomRes.error || !roomRes.data) {
+            return alert("Huonetta ei löytynyt kyseisellä koodilla. Tarkista koodi!");
+        }
+
+        document.getElementById('prev-room-name').innerText = roomRes.data.name;
+        document.getElementById('prev-room-creator').innerText = roomRes.data.creator_name || "Tuntematon";
+        document.getElementById('prev-room-count').innerText = (membersRes.data || []).length + " pelaajaa";
         
-        input.value = ""; 
+        document.getElementById('room-preview-box').style.display = "block";
+    }
+
+    async function confirmJoinRoom() {
+        const code = document.getElementById('join-room-code').value.trim();
+        const { error } = await supabaseClient.from('room_members').insert([{ room_code: code, username: myName }]);
+        if (error) alert("Olet jo liittynyt tähän huoneeseen."); 
+        
+        document.getElementById('join-room-code').value = "";
         showDashboard();
+    }
+
+    function cancelPreview() {
+        document.getElementById('room-preview-box').style.display = "none";
+    }
+
+    // UUSI: Käyttäjän oma poistuminen huoneesta
+    async function leaveRoom() {
+        const confirmLeave = confirm("Haluatko varmasti poistua huoneesta? Samalla kaikki luomasi teot poistetaan kaikkien pelistä.");
+        if (!confirmLeave) return;
+
+        // 1. Poistetaan omat bingoruudut ENSIN, kun jäsenyys on vielä voimassa!
+        await supabaseClient.from('squares').delete().eq('room_code', currentRoom).eq('category', myName);
+        
+        // 2. Poistetaan itsemme jäsenlistalta
+        await supabaseClient.from('room_members').delete().eq('room_code', currentRoom).eq('user_id', myId);
+        
+        currentRoom = null;
+        showDashboard(); // Palataan takaisin kojelaudalle
     }
 
     // --- 5. HUONEEN AULA JA RUUDUT ---
@@ -221,38 +300,51 @@
         document.getElementById('room-name').innerText = name + " (" + code + ")";
         showView('lobby-view');
         
-        // Haetaan nyt suoraan vain bingoruudut
-        const { data } = await supabaseClient.from('squares').select('*').eq('room_code', code);
-        renderLobby(data || []);
+        const [roomRes, membersRes, squaresRes] = await Promise.all([
+            supabaseClient.from('rooms').select('*').eq('code', code).single(),
+            supabaseClient.from('room_members').select('*').eq('room_code', code),
+            supabaseClient.from('squares').select('*').eq('room_code', code)
+        ]);
+
+        const roomData = roomRes.data || {};
+        const membersList = membersRes.data || [];
+        const squaresList = squaresRes.data || [];
+
+        const isAdmin = roomData.owner_id === myId;
+
+        document.getElementById('room-info-bar').innerHTML = `
+            <b>Luoja/Admin:</b> ${roomData.creator_name || 'Tuntematon'}<br>
+            <b>Osallistujia:</b> ${membersList.length} kpl
+        `;
+
+        renderLobby(squaresList, membersList, isAdmin);
     }
 
-    function renderLobby(data) {
+    function renderLobby(squares, members, isAdmin) {
         const container = document.getElementById('accordion-container');
         container.innerHTML = "";
         
-        // Yleiset-kategoria on olemassa automaattisesti
         const grouped = { 'Yleiset': [] };
 
-        // Jaetaan ruudut kategorioihin (tämä rakentaa huoneen pelaajalistan)
-        data.forEach(s => {
+        members.forEach(m => {
+            if (m.username && m.username.toLowerCase() !== 'yleiset') {
+                grouped[m.username] = [];
+            }
+        });
+
+        squares.forEach(s => {
             if (!grouped[s.category]) grouped[s.category] = [];
             grouped[s.category].push(s);
         });
 
         let total = 0;
         for (let cat in grouped) {
-            // Piilotetaan oma kategoria näkyvistä (et voi lisätä asioita itsellesi)
             if (cat.toLowerCase() === myName.toLowerCase()) continue;
             total += grouped[cat].length;
             
             const det = document.createElement('details');
-            
-            // Yleiset kategoria on aina auki oletuksena
-            if (cat === 'Yleiset') {
-                det.open = true;
-            }
+            if (cat === 'Yleiset') det.open = true;
 
-            // HAITARIEFEKTI: Sulkee muut välilehdet kun tämä avataan
             det.addEventListener('toggle', function() {
                 if (this.open) {
                     container.querySelectorAll('details').forEach(otherDet => {
@@ -261,13 +353,24 @@
                 }
             });
             
-            det.innerHTML = `<summary>${cat} (${grouped[cat].length})</summary>`;
+            const targetMember = members.find(m => m.username === cat);
+            let kickButtonHtml = "";
+            if (isAdmin && targetMember && targetMember.user_id !== myId) {
+                kickButtonHtml = `<button class="kick-btn" onclick="event.stopPropagation(); kickPlayer('${targetMember.username}', '${targetMember.user_id}')">Poista pelaaja ❌</button>`;
+            }
+
+            det.innerHTML = `
+                <summary>
+                    <span>${cat} (${grouped[cat].length})</span>
+                    ${kickButtonHtml}
+                </summary>
+            `;
             
             grouped[cat].forEach(s => {
                 det.innerHTML += `
                 <div class="square-item">
                     <span>${s.text_content}</span>
-                    <button class="delete-btn" style="background:red; color:white; border:none; border-radius:4px; padding:2px 6px;" onclick="deleteSquare(${s.id})">X</button>
+                    <button class="delete-btn" onclick="deleteSquare(${s.id})">X</button>
                 </div>`;
             });
             
@@ -288,7 +391,20 @@
     }
 
     async function deleteSquare(id) {
+        const confirmDelete = confirm("Haluatko varmasti poistaa tämän?");
+        if (!confirmDelete) return;
+
         await supabaseClient.from('squares').delete().eq('id', id);
+        openRoom(document.getElementById('room-name').innerText.split(" ")[0], currentRoom);
+    }
+
+    async function kickPlayer(username, userId) {
+        const confirmKick = confirm(`Haluatko varmasti poistaa pelaajan "${username}" tästä huoneesta?`);
+        if (!confirmKick) return;
+
+        await supabaseClient.from('room_members').delete().eq('room_code', currentRoom).eq('user_id', userId);
+        await supabaseClient.from('squares').delete().eq('room_code', currentRoom).eq('category', username);
+
         openRoom(document.getElementById('room-name').innerText.split(" ")[0], currentRoom);
     }
 
